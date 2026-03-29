@@ -12,10 +12,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from groq import Groq
 
-# المفاتيح
-GROQ_API_KEY = "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"
-TELEGRAM_BOT_TOKEN = "8744500511:AAEOu_hVsd2S_eIxAbq6u2EhP69jbCw3mNE"
-
 # إعداد Groq
 client = Groq(api_key=GROQ_API_KEY)
 
