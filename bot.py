@@ -19,6 +19,15 @@ client = Groq(api_key=GROQ_API_KEY)
 user_data = {}
 
 # ═══════════════════════════════════════════════════════════
+# 🔒 تحديد الاستخدام الشخصي - ممنوع الوصول لغير المالك
+# ═══════════════════════════════════════════════════════════
+OWNER_ID = 1474172112
+
+def is_owner(user_id):
+    """التحقق من هوية المستخدم"""
+    return user_id == OWNER_ID
+
+# ═══════════════════════════════════════════════════════════
 # 🎯 60+ مجالات متخصصة مع System Prompts فريدة
 # ═══════════════════════════════════════════════════════════
 
@@ -1090,6 +1099,11 @@ def create_domain_keyboard():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     
+    # 🔒 التحقق من هوية المالك
+    if not is_owner(user_id):
+        await update.message.reply_text("⛔ هذا البوت خاص ولا يمكن للآخرين استخدامه.")
+        return
+    
     # تهيئة بيانات المستخدم
     user_data[user_id] = {
         "domain": None,
@@ -1114,6 +1128,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def domain_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    
+    # 🔒 التحقق من هوية المالك
+    if not is_owner(query.from_user.id):
+        return
     
     user_id = query.from_user.id
     domain_id = query.data.split("_")[1]
@@ -1146,6 +1164,10 @@ async def domain_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     
+    # 🔒 التحقق من هوية المالك
+    if not is_owner(user_id):
+        return
+    
     if user_id in user_data and "domain" in user_data[user_id]:
         domain_id = user_data[user_id]["domain"]
         domain_info = DOMAINS[domain_id]
@@ -1168,6 +1190,11 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # دالة المعلومات
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    
+    # 🔒 التحقق من هوية المالك
+    if not is_owner(user_id):
+        return
+    
     domain_name = "غير محدد"
     
     if user_id in user_data and "domain" in user_data[user_id]:
@@ -1198,6 +1225,10 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_message = update.message.text
+    
+    # 🔒 التحقق من هوية المالك
+    if not is_owner(user_id):
+        return
     
     # التحقق من اختيار المجال
     if user_id not in user_data or "domain" not in user_data[user_id]:
