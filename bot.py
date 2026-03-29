@@ -1,4 +1,5 @@
 import os
+import time
 
 # قراءة المتغيرات من البيئة
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
@@ -17,6 +18,34 @@ client = Groq(api_key=GROQ_API_KEY)
 
 # تخزين بيانات المستخدمين
 user_data = {}
+
+# ═══════════════════════════════════════════════════════════
+# ⏱️ مسح تلقائي للذاكرة بعد 5 دقائق من عدم النشاط
+# ═══════════════════════════════════════════════════════════
+MEMORY_TIMEOUT = 300  # 5 دقائق بالثواني
+
+async def auto_clear_memory(app):
+    """مسح تلقائي لذاكرة المستخدم بعد عدم النشاط"""
+    while True:
+        await asyncio.sleep(60)  # فحص كل دقيقة
+        now = time.time()
+        cleared_users = []
+        
+        for user_id, data in list(user_data.items()):
+            if "last_activity" in data:
+                inactive_time = now - data["last_activity"]
+                if inactive_time >= MEMORY_TIMEOUT and len(data.get("history", [])) > 1:
+                    # حفظ system prompt فقط
+                    if "domain" in data and data["domain"]:
+                        domain_prompt = DOMAINS[data["domain"]]["prompt"]
+                        data["history"] = [{"role": "system", "content": domain_prompt}]
+                        cleared_users.append(user_id)
+                    else:
+                        data["history"] = []
+                        cleared_users.append(user_id)
+        
+        if cleared_users:
+            print(f"🧹 [Auto-Clear] تم مسح ذاكرة {len(cleared_users)} مستخدم بسبب عدم النشاط")
 
 # ═══════════════════════════════════════════════════════════
 # 🔒 تحديد الاستخدام الشخصي - ممنوع الوصول لغير المالك
@@ -1107,7 +1136,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # تهيئة بيانات المستخدم
     user_data[user_id] = {
         "domain": None,
-        "history": []
+        "history": [],
+        "last_activity": time.time()
     }
     
     await update.message.reply_text(
@@ -1147,6 +1177,7 @@ async def domain_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["history"] = [
             {"role": "system", "content": domain_info["prompt"]}
         ]
+        user_data[user_id]["last_activity"] = time.time()
         
         await query.edit_message_text(
             f"✅ **تم اختيار:** {domain_info['name']}\n\n"
@@ -1239,6 +1270,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
+    # تحديث وقت النشاط
+    user_data[user_id]["last_activity"] = time.time()
+    
     # إضافة رسالة المستخدم للتاريخ
     user_data[user_id]["history"].append({"role": "user", "content": user_message})
     
@@ -1275,7 +1309,7 @@ def main():
     print("⚡ Platform: Groq Cloud")
     print("🎯 Level: ULTRA GOD")
     print("📚 Domains: 60+ Specialized Fields")
-    print("💾 Memory: Full Conversation History")
+    print("💾 Memory: Auto-Clear after 5min idle")
     print("═"*60)
     print("\n🚀 Bot is running and waiting for messages...\n")
     
@@ -1287,6 +1321,9 @@ def main():
     app.add_handler(CommandHandler("info", info))
     app.add_handler(CallbackQueryHandler(domain_selection))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    # تشغيل المسح التلقائي للذاكرة بالخلفية
+    asyncio.get_event_loop().create_task(auto_clear_memory(app))
     
     # تشغيل البوت
     app.run_polling()
